@@ -1,8 +1,9 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useReducer, useEffect, useRef } from 'react';
 
 type Direction = 'across' | 'down';
 const INITIAL_GRID_SIZE = 10;
+const INITIAL_CELL_SIZE = 50;
 
 interface GridCell {
   letter: string;
@@ -17,14 +18,138 @@ interface CellProps {
   onClick: () => void;
 }
 
-// Cell Component (inline)
+interface GameState {
+  grid: GridCell[][];
+  gridRows: number;
+  gridCols: number;
+  selected: { row: number; col: number };
+  direction: Direction;
+  cellSize: number;
+}
+
+type GameAction =
+  | { type: 'SET_CELL_SIZE'; payload: number }
+  | { type: 'SELECT_CELL'; payload: { row: number; col: number } }
+  | { type: 'TOGGLE_DIRECTION' }
+  | { type: 'MOVE_CURSOR'; payload: { row: number; col: number } }
+  | { type: 'SET_LETTER'; payload: { row: number; col: number; letter: string } }
+  | { type: 'CLEAR_LETTER'; payload: { row: number; col: number } }
+  | {
+      type: 'EXPAND_GRID';
+      payload: { newRows: number; newCols: number; rowOffset?: number; colOffset?: number };
+    }
+  | { type: 'ARROW_MOVE'; payload: 'up' | 'down' | 'left' | 'right' };
+
+// todo: look into this and why adding one thing at a time angers TS
+const createInitialState = (): GameState => ({
+  grid: Array.from({ length: INITIAL_GRID_SIZE }, () =>
+    Array.from({ length: INITIAL_GRID_SIZE }, () => ({ letter: '' }))
+  ),
+  gridRows: INITIAL_GRID_SIZE,
+  gridCols: INITIAL_GRID_SIZE,
+  selected: {
+    row: Math.floor((INITIAL_GRID_SIZE - 1) / 2),
+    col: Math.floor((INITIAL_GRID_SIZE - 1) / 2),
+  },
+  direction: 'across',
+  cellSize: 50,
+});
+
+function gameReducer(state: GameState, action: GameAction): GameState {
+  // TODO: fix wraparound when adding new column bug
+  switch (action.type) {
+    case 'SET_CELL_SIZE':
+      return { ...state, cellSize: action.payload };
+    case 'TOGGLE_DIRECTION':
+      return { ...state, direction: state.direction === 'across' ? 'down' : 'across' };
+    case 'MOVE_CURSOR':
+      return { ...state, selected: action.payload };
+    case 'SELECT_CELL':
+      return { ...state, selected: action.payload };
+    case 'SET_LETTER': {
+      const { row, col, letter } = action.payload;
+
+      const newGrid = state.grid.map((gridRow, rowIdx) =>
+        gridRow.map((cell, colIdx) => (rowIdx === row && colIdx === col ? { letter } : { ...cell }))
+      );
+      return {
+        ...state,
+        grid: newGrid,
+      };
+    }
+    case 'CLEAR_LETTER': {
+      const { row, col } = action.payload;
+
+      const newGrid = state.grid.map((gridRow, rowIdx) =>
+        gridRow.map((cell, colIdx) =>
+          rowIdx === row && colIdx === col ? { letter: '' } : { ...cell }
+        )
+      );
+      return {
+        ...state,
+        grid: newGrid,
+      };
+    }
+
+    case 'EXPAND_GRID': {
+      const { newRows, newCols, rowOffset = 0, colOffset = 0 } = action.payload;
+      const newGrid = Array.from({ length: newRows }, (_, rowIdx) =>
+        Array.from({ length: newCols }, (_, colIdx) => {
+          const originalRow = rowIdx - rowOffset;
+          const originalCol = colIdx - colOffset;
+
+          if (
+            originalRow >= 0 &&
+            originalRow < state.gridRows &&
+            originalCol >= 0 &&
+            originalCol < state.gridCols
+          ) {
+            return { ...state.grid[originalRow][originalCol] };
+          } else {
+            return { letter: '' };
+          }
+        })
+      );
+      return {
+        ...state,
+        gridRows: newRows,
+        gridCols: newCols,
+        selected: {
+          row: state.selected.row + rowOffset,
+          col: state.selected.col + colOffset,
+        },
+      };
+    }
+    case 'ARROW_MOVE': {
+      const { row, col } = state.selected;
+      let newRow = row;
+      let newCol = col;
+
+      switch (action.payload) {
+        case 'up':
+          if (row > 0) newRow = row - 1;
+          break;
+        case 'down':
+          if (row < state.gridRows - 1) newRow = row + 1;
+          break;
+        case 'left':
+          if (col > 0) newCol = col - 1;
+          break;
+        case 'right':
+          if (col < state.gridCols - 1) newCol = col + 1;
+          break;
+      }
+      return { ...state, selected: { row: newRow, col: newCol } };
+    }
+    default:
+      return state;
+  }
+}
 function Cell({ letter, isSelected, direction, showCaret, cellSize, onClick }: CellProps) {
-  // More robust font size calculation with debugging
   const fontSize = Math.max(Math.floor(cellSize * 0.5), 16); // Minimum 16px, larger ratio
   const caretSize = Math.max(Math.floor(cellSize * 0.3), 12); // Minimum 12px
 
-  // Debug log to check values
-  console.log('Cell debug:', { cellSize, fontSize, letter, isSelected });
+  // console.log('Cell debug:', { cellSize, fontSize, letter, isSelected });
 
   return (
     <div
@@ -44,7 +169,7 @@ function Cell({ letter, isSelected, direction, showCaret, cellSize, onClick }: C
         height: `${cellSize}px`,
         fontSize: `${fontSize}px`,
         lineHeight: '1',
-        color: isSelected ? '#ffffff' : '#111827', // Explicit colors
+        color: isSelected ? '#ffffff' : '#111827',
       }}>
       <span className='select-none' style={{ fontSize: `${fontSize}px` }}>
         {letter}
@@ -73,19 +198,7 @@ function Cell({ letter, isSelected, direction, showCaret, cellSize, onClick }: C
 
 // Main Grid Component
 export default function Grid() {
-  const [gridRows, setGridRows] = useState(INITIAL_GRID_SIZE);
-  const [gridCols, setGridCols] = useState(INITIAL_GRID_SIZE);
-  const [grid, setGrid] = useState<GridCell[][]>(() =>
-    Array.from({ length: INITIAL_GRID_SIZE }, () =>
-      Array.from({ length: INITIAL_GRID_SIZE }, () => ({ letter: '' }))
-    )
-  );
-
-  const [selected, setSelected] = useState<{ row: number; col: number }>(() => ({
-    row: Math.floor((INITIAL_GRID_SIZE - 1) / 2),
-    col: Math.floor((INITIAL_GRID_SIZE - 1) / 2),
-  }));
-  const [direction, setDirection] = useState<Direction>('across');
+  const [state, dispatch] = useReducer(gameReducer, createInitialState());
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Focus the grid on mount so typing works immediately
@@ -96,26 +209,25 @@ export default function Grid() {
   }, []);
 
   // Calculate responsive grid size - key fix for layering issue
-  const [cellSize, setCellSize] = useState(50); // Default fallback
 
   useEffect(() => {
     const calculateCellSize = () => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const availableSpace = Math.min(viewportWidth * 0.8, viewportHeight * 0.8);
-      const maxDimension = Math.max(gridRows, gridCols);
+      const maxDimension = Math.max(state.gridRows, state.gridCols);
       const calculatedSize = Math.floor(availableSpace / maxDimension);
       const finalSize = Math.min(Math.max(calculatedSize, 30), 60); // min 30px, max 60px
-      setCellSize(finalSize);
+
+      dispatch({ type: 'SET_CELL_SIZE', payload: finalSize });
     };
 
     calculateCellSize();
     window.addEventListener('resize', calculateCellSize);
     return () => window.removeEventListener('resize', calculateCellSize);
-  }, [gridRows, gridCols]);
+  }, [state.gridRows, state.gridCols]);
 
-  const gridWidth = cellSize * gridCols;
-  const gridHeight = cellSize * gridRows;
+  // const cellSize = INITIAL_CELL_SIZE; // TODO: REPLACE ?????
 
   const expandGrid = (
     newRows: number,
@@ -130,134 +242,109 @@ export default function Grid() {
 
         if (
           originalRow >= 0 &&
-          originalRow < gridRows &&
+          originalRow < state.gridRows &&
           originalCol >= 0 &&
-          originalCol < gridCols
+          originalCol < state.gridCols
         ) {
-          return { ...grid[originalRow][originalCol] };
+          return { ...state.grid[originalRow][originalCol] };
         }
         return { letter: '' };
       })
     );
+  };
 
-    setGrid(newGrid);
-    setGridRows(newRows);
-    setGridCols(newCols);
+  const handleSpacePress = () => {
+    dispatch({ type: 'TOGGLE_DIRECTION' });
+    const newDirection = state.direction === 'across' ? 'across' : 'down';
+    const { row, col } = state.selected;
 
-    // Update selected position if we added rows/cols at the beginning
-    if (rowOffset > 0 || colOffset > 0) {
-      setSelected((prev) => ({
-        row: prev.row + rowOffset,
-        col: prev.col + colOffset,
-      }));
+    // if not in last row/col, move cursor there
+    if (newDirection === 'across' && col < state.gridCols - 1) {
+      dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
+    } else if (newDirection === 'down' && row < state.gridRows - 1) {
+      dispatch({ type: 'MOVE_CURSOR', payload: { row: row + 1, col } });
+    }
+  };
+
+  const handleBackspace = () => {
+    const { row, col } = state.selected;
+    dispatch({ type: 'CLEAR_LETTER', payload: { row, col } });
+
+    if (state.direction === 'across') {
+      if (col > 0) {
+        dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col - 1 } });
+      } else if (row === 0 && col === 0) {
+        // TODO: not sure why it's && ????????????
+        dispatch({
+          type: 'EXPAND_GRID',
+          payload: { newRows: state.gridRows, newCols: state.gridCols + 1, colOffset: 1 },
+        });
+      }
+    } else {
+      if (row > 0) {
+        dispatch({ type: 'MOVE_CURSOR', payload: { row: row - 1, col } });
+      } else if (row === 0 && col === 0) {
+        // TODO: not sure why it's && ????????????
+        dispatch({
+          type: 'EXPAND_GRID',
+          payload: { newRows: state.gridRows + 1, newCols: state.gridCols, rowOffset: 1 },
+        });
+      }
+    }
+  };
+
+  const handleLetterInput = (letter: string) => {
+    const { row, col } = state.selected;
+    dispatch({ type: 'SET_LETTER', payload: { row, col, letter } });
+
+    if (state.direction === 'across') {
+      if (col < state.gridCols - 1) {
+        dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
+      } else {
+        // Expand right
+        dispatch({
+          type: 'EXPAND_GRID',
+          payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
+        });
+        dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
+      }
+    } else {
+      if (row < state.gridRows - 1) {
+        dispatch({ type: 'MOVE_CURSOR', payload: { row: row + 1, col } });
+      } else {
+        // Expand down
+        dispatch({
+          type: 'EXPAND_GRID',
+          payload: { newRows: state.gridRows + 1, newCols: state.gridCols },
+        });
+        dispatch({ type: 'MOVE_CURSOR', payload: { row: row + 1, col } });
+      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    const { row, col } = selected;
+    const { row, col } = state.selected;
+    e.preventDefault();
 
-    // Arrow key navigation
-    if (e.key === 'ArrowUp' && row > 0) {
-      e.preventDefault();
-      setSelected({ row: row - 1, col });
-      return;
-    }
-    if (e.key === 'ArrowDown' && row < gridRows - 1) {
-      e.preventDefault();
-      setSelected({ row: row + 1, col });
-      return;
-    }
-    if (e.key === 'ArrowLeft' && col > 0) {
-      e.preventDefault();
-      setSelected({ row, col: col - 1 });
-      return;
-    }
-    if (e.key === 'ArrowRight' && col < gridCols - 1) {
-      e.preventDefault();
-      setSelected({ row, col: col + 1 });
-      return;
-    }
-
+    // Arrow key navigation // TODO: ADD EXPAND GRID IF NOT ENOUGH
+    if (e.key === 'ArrowUp') dispatch({ type: 'ARROW_MOVE', payload: 'up' });
+    else if (e.key === 'ArrowDown') dispatch({ type: 'ARROW_MOVE', payload: 'down' });
+    else if (e.key === 'ArrowLeft') dispatch({ type: 'ARROW_MOVE', payload: 'left' });
+    else if (e.key === 'ArrowRight') dispatch({ type: 'ARROW_MOVE', payload: 'right' });
     // Toggle direction on space AND move to next cell in new direction
-    if (e.key === ' ') {
-      e.preventDefault();
-      const newDirection = direction === 'across' ? 'down' : 'across';
-      setDirection(newDirection);
-
-      // Move to next cell in the new direction
-      if (newDirection === 'across' && col < gridCols - 1) {
-        setSelected({ row, col: col + 1 });
-      } else if (newDirection === 'down' && row < gridRows - 1) {
-        setSelected({ row: row + 1, col });
-      }
-      return;
-    }
-
+    else if (e.key === ' ') handleSpacePress();
     // Backspace handling with expansion
-    if (e.key === 'Backspace') {
-      e.preventDefault();
-
-      // Clear current cell
-      setGrid((prev) => {
-        const newGrid = prev.map((row) => [...row]);
-        newGrid[row][col].letter = '';
-        return newGrid;
-      });
-
-      // Move to previous cell, expanding if necessary
-      if (direction === 'across') {
-        if (col > 0) {
-          setSelected({ row, col: col - 1 });
-        } else if (row === 0 && col === 0) {
-          // Expand left (add column at beginning)
-          expandGrid(gridRows, gridCols + 1, 0, 1);
-        }
-      } else {
-        if (row > 0) {
-          setSelected({ row: row - 1, col });
-        } else if (row === 0 && col === 0) {
-          // Expand up (add row at beginning)
-          expandGrid(gridRows + 1, gridCols, 1, 0);
-        }
-      }
-      return;
-    }
-
+    else if (e.key === 'Backspace') handleBackspace();
     // Letter input with expansion
-    if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) {
-      e.preventDefault();
-      const letter = e.key.toUpperCase();
-
-      setGrid((prev) => {
-        const newGrid = [...prev.map((row) => [...row])];
-        newGrid[row][col].letter = letter;
-        return newGrid;
-      });
-
-      // Move to next cell, expanding if necessary
-      if (direction === 'across') {
-        if (col < gridCols - 1) {
-          setSelected({ row, col: col + 1 });
-        } else {
-          // Expand right (add column at end)
-          expandGrid(gridRows, gridCols + 1);
-          setSelected({ row, col: col + 1 });
-        }
-      } else {
-        if (row < gridRows - 1) {
-          setSelected({ row: row + 1, col });
-        } else {
-          // Expand down (add row at end)
-          expandGrid(gridRows + 1, gridCols);
-          setSelected({ row: row + 1, col });
-        }
-      }
-    }
+    else if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) handleLetterInput(e.key.toUpperCase());
   };
 
   const handleCellClick = (row: number, col: number) => {
-    setSelected({ row, col });
+    dispatch({ type: 'SELECT_CELL', payload: { row, col } });
   };
+
+  const gridWidth = state.cellSize * state.gridCols;
+  const gridHeight = state.cellSize * state.gridRows;
 
   return (
     <div className='min-h-screen w-screen bg-pink-50 flex items-center justify-center p-4'>
@@ -270,22 +357,22 @@ export default function Grid() {
           className='border-2 border-black shadow-lg bg-white overflow-hidden'
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
-            gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
+            gridTemplateColumns: `repeat(${state.gridCols}, ${state.cellSize}px)`,
+            gridTemplateRows: `repeat(${state.gridRows}, ${state.cellSize}px)`,
             width: `${gridWidth}px`,
             height: `${gridHeight}px`,
           }}>
-          {grid.map((rowData, rowIdx) =>
+          {state.grid.map((rowData, rowIdx) =>
             rowData.map((cell, colIdx) => {
-              const isSelected = selected.row === rowIdx && selected.col === colIdx;
+              const isSelected = state.selected.row === rowIdx && state.selected.col === colIdx;
               return (
                 <Cell
                   letter={cell.letter}
                   key={`${rowIdx}-${colIdx}`}
                   isSelected={isSelected}
-                  direction={direction}
+                  direction={state.direction}
                   showCaret={isSelected}
-                  cellSize={cellSize}
+                  cellSize={state.cellSize}
                   onClick={() => handleCellClick(rowIdx, colIdx)}
                 />
               );
@@ -294,7 +381,7 @@ export default function Grid() {
         </div>
 
         <div className='text-xl text-gray-700 mt-4'>
-          Mode: <strong className='text-gray-900'>{direction}</strong>
+          Mode: <strong className='text-gray-900'>{state.direction}</strong>
         </div>
 
         <div className='text-sm text-gray-500 text-center max-w-md'>
@@ -303,7 +390,7 @@ export default function Grid() {
         </div>
 
         <div className='text-xs text-gray-400'>
-          Grid: {gridRows} × {gridCols} | Cell size: {cellSize}px
+          Grid: {state.gridRows} × {state.gridCols} | Cell size: {state.cellSize}px
         </div>
       </div>
     </div>
