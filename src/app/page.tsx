@@ -751,12 +751,11 @@ export default function SimpleBananagrams() {
     if (currentLetter) {
       dispatch({ type: 'RETURN_TILE', payload: currentLetter });
       dispatch({ type: 'CLEAR_LETTER', payload: { row, col } });
-    } else {
-      if (state.direction === 'across' && col > 0) {
-        dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col - 1 } });
-      } else if (state.direction === 'down' && row > 0) {
-        dispatch({ type: 'MOVE_CURSOR', payload: { row: row - 1, col } });
-      }
+    }
+    if (state.direction === 'across' && col > 0) {
+      dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col - 1 } });
+    } else if (state.direction === 'down' && row > 0) {
+      dispatch({ type: 'MOVE_CURSOR', payload: { row: row - 1, col } });
     }
   };
 
