@@ -660,108 +660,75 @@ export default function SimpleBananagrams() {
     // add while loop: while not at end of row/col (don't expand) and unoccupied not found, keep looking
     // - if unoccupied found, move there
     // - otherwise, add an unoccupied row/col
-    function advanceCursorExpandGridOg() {
-      // Always advance cursor regardless of whether it's the same letter
-      if (state.direction === 'across') {
-        console.log('advancing cursor across'); // debug
-        if (col < state.gridCols - 1) {
-          dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
-        } else {
-          dispatch({
-            type: 'EXPAND_GRID',
-            payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
-          });
-          dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
-        }
-      } else {
-        console.log('advancing cursor down'); //debug
-
-        if (row < state.gridRows - 1) {
-          dispatch({ type: 'MOVE_CURSOR', payload: { row: row + 1, col } });
-        } else {
-          dispatch({
-            type: 'EXPAND_GRID',
-            payload: { newRows: state.gridRows + 1, newCols: state.gridCols },
-          });
-          dispatch({ type: 'MOVE_CURSOR', payload: { row: row + 1, col } });
-        }
-      }
-    }
 
     function advanceCursorExpandGrid() {
-      // Always advance cursor regardless of whether it's the same letter
       if (state.direction === 'across') {
-        console.log('advancing cursor across'); // debug
+        console.log('advancing cursor across');
 
-        //not last column -> move over
         let destColIdx = col + 1;
-        let destPos = state.grid[row][destColIdx];
-        // looks for empty position in every subsequent column
-        while (destColIdx <= state.gridCols - 1 && destPos.letter !== '') {
-          // move to next
-          destColIdx++;
-          destPos = state.grid[row][destColIdx];
-        } // now we are pointing to either the first empty pos or last col pos (or both)
-        // if this original column isn't last one, move over
-        if (destColIdx < state.gridCols - 1 || (destPos && destPos.letter === '')) {
+
+        // Check if we're already at the last column
+        if (destColIdx >= state.gridCols) {
+          // Need to expand grid first
+          dispatch({
+            type: 'EXPAND_GRID',
+            payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
+          });
           dispatch({ type: 'MOVE_CURSOR', payload: { row, col: destColIdx } });
-          // } else if (destPos && destPos.letter !== '' && destColIdx === state.gridCols - 1) {
+          return;
+        }
+
+        // Look for empty position in subsequent columns
+        while (destColIdx < state.gridCols && state.grid[row][destColIdx].letter !== '') {
+          destColIdx++;
+        }
+
+        // If we found an empty spot within current grid
+        if (destColIdx < state.gridCols) {
+          dispatch({ type: 'MOVE_CURSOR', payload: { row, col: destColIdx } });
         } else {
-          // specifically in the last column, which is occupied -> need to add 1
-          // potentialPos = last
+          // All positions to the right are occupied, need to expand
           dispatch({
             type: 'EXPAND_GRID',
             payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
           });
           dispatch({ type: 'MOVE_CURSOR', payload: { row, col: destColIdx } });
         }
-        // if (col < state.gridCols - 1) {
-        //   dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
-        // } else {
-        //   // if this original column is last, expand grid and then move over
-        //   dispatch({
-        //     type: 'EXPAND_GRID',
-        //     payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
-        //   });
-        //   dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
-        // }
       } else if (state.direction === 'down') {
-        console.log('advancing cursor DOWN'); // debug
+        console.log('advancing cursor DOWN');
 
-        //not last row -> move over
         let destRowIdx = row + 1;
-        let destPos = state.grid[destRowIdx][col];
-        // looks for empty position in every subsequent row
-        while (destRowIdx <= state.gridRows - 1 && destPos.letter !== '') {
-          // move to next
-          destRowIdx++;
-          destPos = state.grid[destRowIdx][col];
-        } // now we are pointing to either the first empty pos or last row pos (or both)
-        // if this original row isn't last one, move over
-        if (destRowIdx < state.gridRows - 1 || (destPos && destPos.letter === '')) {
+
+        // Check if we're already at the last row
+        if (destRowIdx >= state.gridRows) {
+          // Need to expand grid first
+          dispatch({
+            type: 'EXPAND_GRID',
+            payload: { newRows: state.gridRows + 1, newCols: state.gridCols },
+          });
           dispatch({ type: 'MOVE_CURSOR', payload: { row: destRowIdx, col } });
-          // } else if (destPos && destPos.letter !== '' && destRowIdx === state.gridCols - 1) {
+          return;
+        }
+
+        // Look for empty position in subsequent rows
+        while (destRowIdx < state.gridRows && state.grid[destRowIdx][col].letter !== '') {
+          destRowIdx++;
+        }
+
+        // If we found an empty spot within current grid
+        if (destRowIdx < state.gridRows) {
+          dispatch({ type: 'MOVE_CURSOR', payload: { row: destRowIdx, col } });
         } else {
-          // specifically in the last row, which is occupied -> need to add 1
-          // potentialPos = last
+          // All positions below are occupied, need to expand
           dispatch({
             type: 'EXPAND_GRID',
             payload: { newRows: state.gridRows + 1, newCols: state.gridCols },
           });
           dispatch({ type: 'MOVE_CURSOR', payload: { row: destRowIdx, col } });
         }
-        // if (col < state.gridCols - 1) {
-        //   dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
-        // } else {
-        //   // if this original row is last, expand grid and then move over
-        //   dispatch({
-        //     type: 'EXPAND_GRID',
-        //     payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
-        //   });
-        //   dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col + 1 } });
-        // }
       }
     }
+
     const { row, col } = state.selected;
     console.log('row, col: ', row, col);
     const currentLetter = state.grid[row][col].letter;
