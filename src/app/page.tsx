@@ -45,9 +45,9 @@ const generateDailyTiles = (random = false): string[] => {
     }
   });
 
-  // get seeded pseudo-random number
-  const today = new Date().toDateString();
-  const dateNum = new Date(today).getTime();
+  const now = new Date();
+  const utcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  // console.log('utcMidnight: ', utcMidnight);
 
   const randomOffset = random ? Math.floor(Math.random() * 1000000) : 0;
 
@@ -58,7 +58,8 @@ const generateDailyTiles = (random = false): string[] => {
 
   // fisher-yates shuffling
   for (let i = allLetters.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom(dateNum + i + randomOffset) * (i + 1)); // inside Math.floor: random # from 0 to i
+    const j = Math.floor(seededRandom(utcMidnight + i + randomOffset) * (i + 1)); // inside Math.floor: random # from 0 to i
+
     [allLetters[i], allLetters[j]] = [allLetters[j], allLetters[i]];
   }
 
