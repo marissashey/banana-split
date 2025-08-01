@@ -943,7 +943,7 @@ export default function SimpleBananagrams() {
         <div className='text-center bg-white rounded-lg p-12 border border-yellow-200 shadow-lg'>
           <h1 className='text-4xl font-bold text-yellow-800 mb-8'>Not Bananagrams</h1>
           <p className='text-yellow-700 mb-2'>[d]=demo mode</p>
-          <p className='text-yellow-700 mb-4'>[space]=start today's game</p>
+          <p className='text-yellow-700 mb-4'>[space]=start today&apos;s game</p>
         </div>
       </div>
     );
@@ -965,7 +965,7 @@ export default function SimpleBananagrams() {
           <p className='text-yellow-700 mb-4'>
             Demo mode solve time: {minutes}:{seconds.toString().padStart(2, '0')}
           </p>
-          <p className='text-yellow-700 mb-2'>Ready to begin today's game?</p>
+          <p className='text-yellow-700 mb-2'>Ready to begin today&apos;s game?</p>
           <p className='text-yellow-600 text-sm'>[space]=continue</p>
         </div>
       </div>
