@@ -4,10 +4,11 @@ import React, { useReducer, useEffect, useRef, useState } from 'react';
 // import toast, { Toaster } from 'react-hot-toast';
 
 type Direction = 'across' | 'down';
-const INITIAL_GRID_SIZE = 10;
+const INITIAL_GRID_SIZE = 10; // number of tiles on a side (starts as square)
+const MAX_GRID_AREA = 400; // total number of tiles (area in tiles)
 
 // Easier letter distribution - more common letters, fewer difficult ones
-const generateDailyTiles = (): string[] => {
+const generateDailyTiles = (random = false): string[] => {
   const easyLetterDistribution = {
     A: 8,
     B: 2,
@@ -44,15 +45,20 @@ const generateDailyTiles = (): string[] => {
     }
   });
 
+  // get seeded pseudo-random number
   const today = new Date().toDateString();
   const dateNum = new Date(today).getTime();
+
+  const randomOffset = random ? Math.floor(Math.random() * 1000000) : 0;
+
   const seededRandom = (seed: number) => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
+    const raw = Math.sin(seed) * 10000;
+    return raw - Math.floor(raw); // get number after decimal place (between 0-1)
   };
 
+  // fisher-yates shuffling
   for (let i = allLetters.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom(dateNum + i) * (i + 1));
+    const j = Math.floor(seededRandom(dateNum + i + randomOffset) * (i + 1)); // inside Math.floor: random # from 0 to i
     [allLetters[i], allLetters[j]] = [allLetters[j], allLetters[i]];
   }
 
@@ -101,12 +107,13 @@ interface GameState {
   isDemoMode: boolean;
   demoCompleted: boolean;
   demoTime: number | null;
-  gamePhase: 'start' | 'demo' | 'game';
+  gamePhase: 'start' | 'demo' | 'game' | 'random';
 }
 
 type GameAction =
   | { type: 'START_GAME' }
   | { type: 'START_DEMO' }
+  | { type: 'START_RANDOM' }
   | { type: 'EXIT_DEMO' }
   | { type: 'COMPLETE_DEMO' }
   | { type: 'CONTINUE_TO_GAME' }
@@ -180,6 +187,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         gameStartTime: Date.now(),
         gamePhase: 'game',
         tiles: generateDailyTiles().map((letter, index) => ({
+          letter,
+          isUsed: false,
+          id: index,
+        })),
+        grid: Array.from({ length: INITIAL_GRID_SIZE }, () =>
+          Array.from({ length: INITIAL_GRID_SIZE }, () => ({ letter: '' }))
+        ),
+      };
+
+    case 'START_RANDOM':
+      return {
+        ...state,
+        gameStarted: true,
+        gameStartTime: Date.now(),
+        gamePhase: 'game',
+        tiles: generateDailyTiles(true).map((letter, index) => ({
           letter,
           isUsed: false,
           id: index,
