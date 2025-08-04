@@ -392,7 +392,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let newRow = row;
       let newCol = col;
       let needsExpansion = false;
-      let expansionConfig = {
+      let expansionConfig: {
+        newRows: number;
+        newCols: number;
+        rowOffset?: number;
+        colOffset?: number;
+      } = {
         newRows: state.gridRows,
         newCols: state.gridCols,
         rowOffset: 0,
