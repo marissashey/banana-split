@@ -392,7 +392,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let newRow = row;
       let newCol = col;
       let needsExpansion = false;
-      let expansionConfig = {};
+      let expansionConfig = {
+        newRows: state.gridRows,
+        newCols: state.gridCols,
+        rowOffset: 0,
+        colOffset: 0,
+      };
 
       switch (action.payload) {
         case 'up':
@@ -419,6 +424,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             expansionConfig = {
               newRows: state.gridRows + 1,
               newCols: state.gridCols,
+              rowOffset: 0,
+              colOffset: 0,
             };
             newRow = row + 1;
           }
@@ -447,6 +454,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             expansionConfig = {
               newRows: state.gridRows,
               newCols: state.gridCols + 1,
+              rowOffset: 0,
+              colOffset: 0,
             };
             newCol = col + 1;
           }
