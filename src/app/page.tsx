@@ -561,13 +561,13 @@ function generateShareableResult(
     if (row < maxRow) gridStr += '\n';
   }
 
-  return `doddl ${date}
+  return `Word Grid ${date}
 ⏱️ ${timeStr}
 📝 ${words.length} words
 
 ${gridStr}
 
-#doddl`;
+#WordGrid`;
 }
 
 function CustomToast({
@@ -1018,7 +1018,7 @@ export default function SimpleBananagrams() {
         onKeyDown={handleKeyDown}
         style={{ outline: 'none' }}>
         <div className='text-center bg-white border-2 border-gray-400 p-8 font-mono shadow-lg'>
-          <h1 className='text-3xl font-bold text-gray-800 mb-6'>doddl</h1>
+          <h1 className='text-3xl font-bold text-gray-800 mb-6'>word grid</h1>
           <p className='text-blue-600 mb-2 text-sm'>[T] tutorial mode</p>
           <p className='text-blue-600 mb-2 text-sm'>[D] daily game</p>
           <p className='text-blue-600 mb-4 text-sm'>[R] random game</p>
@@ -1159,16 +1159,15 @@ export default function SimpleBananagrams() {
         {state.gameStarted && !state.isGameEnded ? (
           <div>
             <div className='text-blue-600 mb-2'>how to play</div>
-            <div className='mb-2'>
-              [type] every tile to create a crossword.
+            <div className='mb-5'>
+              [type] every tile to build a crossword
               <br />
               every word must connect and be valid
             </div>
-            {/* <div className='mb-1'>• every word must connect and be valid</div> */}
-            <div className='mt-5 mb-1'>• [SPACE] change direction</div>
-            <div className='mb-1'>• [arrow keys/click] move</div>
+            <div className='mb-1'>• [SPACE] change direction</div>
+            <div className='mb-1'>• [arrow keys/mouse] move</div>
+
             <div className='mb-1'>• [`] trade tile, [ENTER] check words</div>
-            {/* <div className='mb-2'>• [ESC] pause</div> */}
             <div className='border-t border-gray-300 pt-2 text-orange-600'>
               [ESC] pause • [ENTER] submit • [`] trade
             </div>
@@ -1180,7 +1179,11 @@ export default function SimpleBananagrams() {
 
       {/* Victory/End Modal */}
       {state.isGameEnded && state.gameEndTime && !state.demoCompleted && (
-        <div className='fixed inset-0 bg-gray-100 bg-opacity-90 flex items-center justify-center z-50'>
+        <div
+          className='fixed inset-0 bg-gray-100 bg-opacity-90 flex items-center justify-center z-50'
+          tabIndex={0}
+          onKeyDown={handleKeyDown}
+          ref={(el) => el?.focus()}>
           <div className='bg-white border-2 border-gray-400 p-8 text-center font-mono shadow-lg max-w-md'>
             {state.gameWon ? (
               <>
@@ -1218,7 +1221,7 @@ export default function SimpleBananagrams() {
             ) : (
               <h2 className='text-xl font-bold mb-4 text-orange-600'>nice try</h2>
             )}
-            <p className='text-blue-600 text-xs'>[SPACE] play again</p>
+            <p className='text-blue-600 text-xs'>[SPACE] return to menu</p>
           </div>
         </div>
       )}
