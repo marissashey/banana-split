@@ -6,38 +6,38 @@ const INITIAL_GRID_SIZE = 10;
 const MAX_GRID_AREA = 400;
 
 const generateDailyTiles = (random = false): string[] => {
-  // Much easier letter distribution - more vowels and common consonants
-  const easyLetterDistribution = {
-    A: 12,
-    B: 2,
-    C: 3,
-    D: 4,
-    E: 16,
-    F: 2,
-    G: 2,
-    H: 2,
-    I: 12,
+  // Bananagrams-style distribution (exactly 16 tiles)
+  const bananagramsDistribution = {
+    A: 2,
+    B: 1,
+    C: 1,
+    D: 1,
+    E: 2,
+    F: 0,
+    G: 0,
+    H: 1,
+    I: 1,
     J: 0,
-    K: 1,
-    L: 6,
-    M: 3,
-    N: 8,
-    O: 12,
-    P: 2,
+    K: 0,
+    L: 1,
+    M: 1,
+    N: 1,
+    O: 1,
+    P: 0,
     Q: 0,
-    R: 8,
-    S: 6,
-    T: 8,
-    U: 6,
-    V: 1,
-    W: 2,
+    R: 1,
+    S: 1,
+    T: 1,
+    U: 1,
+    V: 0,
+    W: 0,
     X: 0,
-    Y: 2,
+    Y: 0,
     Z: 0,
   };
 
   const allLetters: string[] = [];
-  Object.entries(easyLetterDistribution).forEach(([letter, count]) => {
+  Object.entries(bananagramsDistribution).forEach(([letter, count]) => {
     for (let i = 0; i < count; i++) {
       allLetters.push(letter);
     }
@@ -138,11 +138,11 @@ type GameAction =
   | { type: 'ARROW_MOVE'; payload: 'up' | 'down' | 'left' | 'right' };
 
 const generateRandomTiles = (count: number): string[] => {
-  // Even when generating random tiles, keep them easier
-  const easyLetters = 'AEIOURSTLNDHYAEIOURSTLNDHCMFPBGAEIOU';
+  // Use similar distribution for random tiles (favor common letters)
+  const commonLetters = 'AAEEIOUTRNSLDHCMBG';
   return Array.from(
     { length: count },
-    () => easyLetters[Math.floor(Math.random() * easyLetters.length)]
+    () => commonLetters[Math.floor(Math.random() * commonLetters.length)]
   );
 };
 
@@ -511,6 +511,65 @@ function extractWords(grid: GridCell[][], rows: number, cols: number): string[] 
   return words;
 }
 
+function generateShareableResult(
+  grid: GridCell[][],
+  rows: number,
+  cols: number,
+  startTime: number,
+  endTime: number
+): string {
+  const date = new Date().toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  const elapsed = endTime - startTime;
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+  const words = extractWords(grid, rows, cols);
+
+  // Find the bounding box of all letters
+  let minRow = rows,
+    maxRow = -1,
+    minCol = cols,
+    maxCol = -1;
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      if (grid[row][col].letter) {
+        minRow = Math.min(minRow, row);
+        maxRow = Math.max(maxRow, row);
+        minCol = Math.min(minCol, col);
+        maxCol = Math.max(maxCol, col);
+      }
+    }
+  }
+
+  // Generate compact grid representation using Unicode box characters
+  let gridStr = '';
+  for (let row = minRow; row <= maxRow; row++) {
+    for (let col = minCol; col <= maxCol; col++) {
+      const letter = grid[row][col].letter;
+      if (letter) {
+        gridStr += letter;
+      } else {
+        gridStr += '□'; // Empty box character
+      }
+    }
+    if (row < maxRow) gridStr += '\n';
+  }
+
+  return `doddl ${date}
+⏱️ ${timeStr}
+📝 ${words.length} words
+
+${gridStr}
+
+#doddl`;
+}
+
 function CustomToast({
   message,
   onClose,
@@ -627,6 +686,7 @@ function Tile({ letter, isUsed, isNew }: { letter: string; isUsed: boolean; isNe
 export default function SimpleBananagrams() {
   const [state, dispatch] = useReducer(gameReducer, createInitialState());
   const [isValidating, setIsValidating] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -759,6 +819,34 @@ export default function SimpleBananagrams() {
       dispatch({ type: 'MOVE_CURSOR', payload: { row, col: col - 1 } });
     } else if (state.direction === 'down' && row > 0) {
       dispatch({ type: 'MOVE_CURSOR', payload: { row: row - 1, col } });
+    }
+  };
+
+  const handleCopyResult = async () => {
+    if (state.gamePhase !== 'game' || !state.gameEndTime) return;
+
+    const shareText = generateShareableResult(
+      state.grid,
+      state.gridRows,
+      state.gridCols,
+      state.gameStartTime,
+      state.gameEndTime
+    );
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = shareText;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     }
   };
 
@@ -930,7 +1018,7 @@ export default function SimpleBananagrams() {
         onKeyDown={handleKeyDown}
         style={{ outline: 'none' }}>
         <div className='text-center bg-white border-2 border-gray-400 p-8 font-mono shadow-lg'>
-          <h1 className='text-3xl font-bold text-gray-800 mb-6'>word grid</h1>
+          <h1 className='text-3xl font-bold text-gray-800 mb-6'>doddl</h1>
           <p className='text-blue-600 mb-2 text-sm'>[T] tutorial mode</p>
           <p className='text-blue-600 mb-2 text-sm'>[D] daily game</p>
           <p className='text-blue-600 mb-4 text-sm'>[R] random game</p>
@@ -1071,11 +1159,16 @@ export default function SimpleBananagrams() {
         {state.gameStarted && !state.isGameEnded ? (
           <div>
             <div className='text-blue-600 mb-2'>how to play</div>
-            <div className='mb-2'>use every tile to build a crossword</div>
-            <div className='mb-1'>• every word must connect and be valid</div>
-            <div className='mb-1'>• [SPACE] change direction</div>
+            <div className='mb-2'>
+              [type] every tile to create a crossword.
+              <br />
+              every word must connect and be valid
+            </div>
+            {/* <div className='mb-1'>• every word must connect and be valid</div> */}
+            <div className='mt-5 mb-1'>• [SPACE] change direction</div>
+            <div className='mb-1'>• [arrow keys/click] move</div>
             <div className='mb-1'>• [`] trade tile, [ENTER] check words</div>
-            <div className='mb-2'>• [ESC] pause</div>
+            {/* <div className='mb-2'>• [ESC] pause</div> */}
             <div className='border-t border-gray-300 pt-2 text-orange-600'>
               [ESC] pause • [ENTER] submit • [`] trade
             </div>
@@ -1088,7 +1181,7 @@ export default function SimpleBananagrams() {
       {/* Victory/End Modal */}
       {state.isGameEnded && state.gameEndTime && !state.demoCompleted && (
         <div className='fixed inset-0 bg-gray-100 bg-opacity-90 flex items-center justify-center z-50'>
-          <div className='bg-white border-2 border-gray-400 p-8 text-center font-mono shadow-lg'>
+          <div className='bg-white border-2 border-gray-400 p-8 text-center font-mono shadow-lg max-w-md'>
             {state.gameWon ? (
               <>
                 <h2 className='text-2xl font-bold mb-4 text-gray-800'>victory!</h2>
@@ -1101,6 +1194,26 @@ export default function SimpleBananagrams() {
                     isPaused={false}
                   />
                 </div>
+
+                {/* Daily game sharing */}
+                {state.gamePhase === 'game' && (
+                  <div className='mb-4'>
+                    <div className='bg-gray-50 border border-gray-300 p-3 mb-3 text-xs text-left font-mono whitespace-pre-line'>
+                      {generateShareableResult(
+                        state.grid,
+                        state.gridRows,
+                        state.gridCols,
+                        state.gameStartTime,
+                        state.gameEndTime
+                      )}
+                    </div>
+                    <button
+                      onClick={handleCopyResult}
+                      className='bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 text-sm border border-blue-600 font-mono'>
+                      {copySuccess ? 'Copied!' : 'Copy Result'}
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <h2 className='text-xl font-bold mb-4 text-orange-600'>nice try</h2>
