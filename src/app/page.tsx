@@ -561,13 +561,13 @@ function generateShareableResult(
     if (row < maxRow) gridStr += '\n';
   }
 
-  return `Word Grid ${date}
+  return `doddl ${date}
 ⏱️ ${timeStr}
 📝 ${words.length} words
 
 ${gridStr}
 
-#WordGrid`;
+#doddl`;
 }
 
 function CustomToast({
@@ -1018,7 +1018,7 @@ export default function SimpleBananagrams() {
         onKeyDown={handleKeyDown}
         style={{ outline: 'none' }}>
         <div className='text-center bg-white border-2 border-gray-400 p-8 font-mono shadow-lg'>
-          <h1 className='text-3xl font-bold text-gray-800 mb-6'>word grid</h1>
+          <h1 className='text-3xl font-bold text-gray-800 mb-6'>doddl</h1>
           <p className='text-blue-600 mb-2 text-sm'>[T] tutorial mode</p>
           <p className='text-blue-600 mb-2 text-sm'>[D] daily game</p>
           <p className='text-blue-600 mb-4 text-sm'>[R] random game</p>
