@@ -1,41 +1,39 @@
 'use client';
 import React, { useReducer, useEffect, useRef, useState } from 'react';
-// import { randomUUID } from 'crypto';
-// import toast, { Toaster } from 'react-hot-toast';
 
 type Direction = 'across' | 'down';
-const INITIAL_GRID_SIZE = 10; // number of tiles on a side (starts as square)
-const MAX_GRID_AREA = 400; // total number of tiles (area in tiles)
+const INITIAL_GRID_SIZE = 10;
+const MAX_GRID_AREA = 400;
 
-// Easier letter distribution - more common letters, fewer difficult ones
 const generateDailyTiles = (random = false): string[] => {
+  // Much easier letter distribution - more vowels and common consonants
   const easyLetterDistribution = {
-    A: 8,
+    A: 12,
     B: 2,
-    C: 2,
-    D: 3,
-    E: 12,
+    C: 3,
+    D: 4,
+    E: 16,
     F: 2,
     G: 2,
     H: 2,
-    I: 8,
-    J: 1,
+    I: 12,
+    J: 0,
     K: 1,
-    L: 4,
-    M: 2,
-    N: 6,
-    O: 8,
+    L: 6,
+    M: 3,
+    N: 8,
+    O: 12,
     P: 2,
-    Q: 1,
-    R: 6,
-    S: 4,
-    T: 6,
-    U: 4,
-    V: 2,
+    Q: 0,
+    R: 8,
+    S: 6,
+    T: 8,
+    U: 6,
+    V: 1,
     W: 2,
-    X: 1,
-    Y: 1,
-    Z: 1,
+    X: 0,
+    Y: 2,
+    Z: 0,
   };
 
   const allLetters: string[] = [];
@@ -47,19 +45,15 @@ const generateDailyTiles = (random = false): string[] => {
 
   const now = new Date();
   const utcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  // console.log('utcMidnight: ', utcMidnight);
-
   const randomOffset = random ? Math.floor(Math.random() * 1000000) : 0;
 
   const seededRandom = (seed: number) => {
     const raw = Math.sin(seed) * 10000;
-    return raw - Math.floor(raw); // get number after decimal place (between 0-1)
+    return raw - Math.floor(raw);
   };
 
-  // fisher-yates shuffling
   for (let i = allLetters.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom(utcMidnight + i + randomOffset) * (i + 1)); // inside Math.floor: random # from 0 to i
-
+    const j = Math.floor(seededRandom(utcMidnight + i + randomOffset) * (i + 1));
     [allLetters[i], allLetters[j]] = [allLetters[j], allLetters[i]];
   }
 
@@ -82,12 +76,14 @@ const validateWordWithAPI = async (word: string): Promise<boolean> => {
 interface GridCell {
   letter: string;
 }
+
 interface Tile {
   letter: string;
   isUsed: boolean;
   id: number;
   isNew?: boolean;
 }
+
 interface GameState {
   grid: GridCell[][];
   gridRows: number;
@@ -142,8 +138,12 @@ type GameAction =
   | { type: 'ARROW_MOVE'; payload: 'up' | 'down' | 'left' | 'right' };
 
 const generateRandomTiles = (count: number): string[] => {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  return Array.from({ length: count }, () => letters[Math.floor(Math.random() * letters.length)]);
+  // Even when generating random tiles, keep them easier
+  const easyLetters = 'AEIOURSTLNDHYAEIOURSTLNDHCMFPBGAEIOU';
+  return Array.from(
+    { length: count },
+    () => easyLetters[Math.floor(Math.random() * easyLetters.length)]
+  );
 };
 
 const createInitialState = (): GameState => ({
@@ -178,7 +178,6 @@ const createInitialState = (): GameState => ({
   gamePhase: 'start',
 });
 
-// reducer: function that houses all the logic of how the state gets updated. pass it state and action arguments -> returns next state
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'START_GAME':
@@ -202,7 +201,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         gameStarted: true,
         gameStartTime: Date.now(),
-        gamePhase: 'game',
+        gamePhase: 'random',
         tiles: generateDailyTiles(true).map((letter, index) => ({
           letter,
           isUsed: false,
@@ -278,7 +277,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'RETURN_TILE': {
       const letter = action.payload;
       const usedTileIndex = state.tiles.findIndex((tile) => tile.letter === letter && tile.isUsed);
-      console.log('RETURN_TILE>letter:', letter);
       if (usedTileIndex === -1) return state;
       const newTiles = [...state.tiles];
       newTiles[usedTileIndex] = { ...newTiles[usedTileIndex], isUsed: false };
@@ -409,7 +407,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (row > 0) {
             newRow = row - 1;
           } else {
-            // At top edge - expand upward
             needsExpansion = true;
             expansionConfig = {
               newRows: state.gridRows + 1,
@@ -424,7 +421,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (row < state.gridRows - 1) {
             newRow = row + 1;
           } else {
-            // At bottom edge - expand downward
             needsExpansion = true;
             expansionConfig = {
               newRows: state.gridRows + 1,
@@ -439,7 +435,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (col > 0) {
             newCol = col - 1;
           } else {
-            // At left edge - expand leftward
             needsExpansion = true;
             expansionConfig = {
               newRows: state.gridRows,
@@ -454,7 +449,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (col < state.gridCols - 1) {
             newCol = col + 1;
           } else {
-            // At right edge - expand rightward
             needsExpansion = true;
             expansionConfig = {
               newRows: state.gridRows,
@@ -527,7 +521,6 @@ function CustomToast({
   persistent?: boolean;
 }) {
   useEffect(() => {
-    console.log('toast message: ', message);
     if (!persistent) {
       const timer = setTimeout(onClose, 2000);
       return () => clearTimeout(timer);
@@ -535,11 +528,9 @@ function CustomToast({
   }, [onClose, persistent]);
 
   return (
-    <div className='border fixed top-8 left-1/2 transform -translate-x-1/2 bg-yellow-800 text-yellow-50 px-4 py-2 rounded text-sm z-50 shadow-lg'>
+    <div className='fixed top-4 left-1/2 transform -translate-x-1/2 bg-orange-500 text-gray-800 border border-gray-600 px-3 py-2 font-mono text-sm z-50 shadow-lg'>
       {message}
     </div>
-
-    // <div></div>
   );
 }
 
@@ -567,7 +558,7 @@ function Timer({
   const seconds = Math.floor((elapsed % 60000) / 1000);
 
   return (
-    <div className='font-mono text-yellow-700'>
+    <div className='font-mono text-blue-600'>
       {minutes}:{seconds.toString().padStart(2, '0')}
     </div>
   );
@@ -588,22 +579,22 @@ function Cell({
     <div
       onClick={onClick}
       className={`
-        w-10 h-10 border border-black cursor-pointer 
-        flex items-center justify-center font-bold text-lg
-        transition-colors duration-150 relative
+        w-8 h-8 border cursor-pointer 
+        flex items-center justify-center font-mono font-bold text-sm
+        transition-colors duration-75 relative
         ${
           isSelected
-            ? 'bg-yellow-600 text-white border-black'
+            ? 'bg-blue-400 text-white border-blue-500'
             : letter
-            ? 'bg-white hover:bg-yellow-50'
-            : 'bg-yellow-25 hover:bg-yellow-100'
+            ? 'bg-white hover:bg-gray-100 border-gray-400 text-gray-800'
+            : 'bg-gray-200 hover:bg-gray-300 border-gray-400'
         }
       `}>
       <span className='select-none'>{letter}</span>
       {isSelected && (
         <div
-          className={`absolute text-white text-xs ${
-            direction === 'across' ? 'top-0 right-1' : 'bottom-0 left-1'
+          className={`absolute text-white text-xs font-bold ${
+            direction === 'across' ? 'top-0 right-0.5' : 'bottom-0 left-0.5'
           }`}>
           {direction === 'across' ? '→' : '↓'}
         </div>
@@ -616,17 +607,15 @@ function Tile({ letter, isUsed, isNew }: { letter: string; isUsed: boolean; isNe
   return (
     <div className='relative'>
       {isNew && !isUsed && (
-        <div className='absolute -bottom-1 left-1/2 transform -translate-x-1/2 text-xs text-yellow-700 px-1 py-0.5 rounded text-s font-extrabold z-10'>
-          new!
-        </div>
+        <div className='absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full z-10'></div>
       )}
       <div
         className={`
-        flex items-center justify-center w-8 h-8 rounded text-sm font-bold shadow-sm
+        flex items-center justify-center w-7 h-7 font-mono font-bold text-sm border
         ${
           isUsed
-            ? 'bg-yellow-100 text-yellow-400 line-through border border-yellow-200'
-            : 'bg-white border border-yellow-300 text-yellow-800 hover:bg-yellow-50'
+            ? 'bg-gray-300 text-gray-500 line-through border-gray-400'
+            : 'bg-white border-gray-400 text-gray-800 hover:bg-gray-100'
         }
       `}>
         {letter}
@@ -639,7 +628,6 @@ export default function SimpleBananagrams() {
   const [state, dispatch] = useReducer(gameReducer, createInitialState());
   const [isValidating, setIsValidating] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -649,7 +637,10 @@ export default function SimpleBananagrams() {
   }, [state.gamePhase, state.demoCompleted]);
 
   useEffect(() => {
-    if (gridRef.current && (state.gameStarted || state.gamePhase === 'game')) {
+    if (
+      gridRef.current &&
+      (state.gameStarted || state.gamePhase === 'game' || state.gamePhase === 'random')
+    ) {
       gridRef.current.focus();
     }
   }, [state.gameStarted, state.gamePhase]);
@@ -695,19 +686,10 @@ export default function SimpleBananagrams() {
   const handleLetterInput = (letter: string) => {
     if (!isLetterAvailable(letter)) return;
 
-    // add while loop: while not at end of row/col (don't expand) and unoccupied not found, keep looking
-    // - if unoccupied found, move there
-    // - otherwise, add an unoccupied row/col
-
     function advanceCursorExpandGrid() {
       if (state.direction === 'across') {
-        console.log('advancing cursor across');
-
         let destColIdx = col + 1;
-
-        // Check if we're already at the last column
         if (destColIdx >= state.gridCols) {
-          // Need to expand grid first
           dispatch({
             type: 'EXPAND_GRID',
             payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
@@ -715,17 +697,12 @@ export default function SimpleBananagrams() {
           dispatch({ type: 'MOVE_CURSOR', payload: { row, col: destColIdx } });
           return;
         }
-
-        // Look for empty position in subsequent columns
         while (destColIdx < state.gridCols && state.grid[row][destColIdx].letter !== '') {
           destColIdx++;
         }
-
-        // If we found an empty spot within current grid
         if (destColIdx < state.gridCols) {
           dispatch({ type: 'MOVE_CURSOR', payload: { row, col: destColIdx } });
         } else {
-          // All positions to the right are occupied, need to expand
           dispatch({
             type: 'EXPAND_GRID',
             payload: { newRows: state.gridRows, newCols: state.gridCols + 1 },
@@ -733,13 +710,8 @@ export default function SimpleBananagrams() {
           dispatch({ type: 'MOVE_CURSOR', payload: { row, col: destColIdx } });
         }
       } else if (state.direction === 'down') {
-        console.log('advancing cursor DOWN');
-
         let destRowIdx = row + 1;
-
-        // Check if we're already at the last row
         if (destRowIdx >= state.gridRows) {
-          // Need to expand grid first
           dispatch({
             type: 'EXPAND_GRID',
             payload: { newRows: state.gridRows + 1, newCols: state.gridCols },
@@ -747,17 +719,12 @@ export default function SimpleBananagrams() {
           dispatch({ type: 'MOVE_CURSOR', payload: { row: destRowIdx, col } });
           return;
         }
-
-        // Look for empty position in subsequent rows
         while (destRowIdx < state.gridRows && state.grid[destRowIdx][col].letter !== '') {
           destRowIdx++;
         }
-
-        // If we found an empty spot within current grid
         if (destRowIdx < state.gridRows) {
           dispatch({ type: 'MOVE_CURSOR', payload: { row: destRowIdx, col } });
         } else {
-          // All positions below are occupied, need to expand
           dispatch({
             type: 'EXPAND_GRID',
             payload: { newRows: state.gridRows + 1, newCols: state.gridCols },
@@ -768,13 +735,11 @@ export default function SimpleBananagrams() {
     }
 
     const { row, col } = state.selected;
-    console.log('row, col: ', row, col);
     const currentLetter = state.grid[row][col].letter;
 
-    // ALready has a letter in this spot
     if (currentLetter) {
       dispatch({ type: 'RETURN_TILE', payload: currentLetter });
-      advanceCursorExpandGrid(); // TODO: debug this not working
+      advanceCursorExpandGrid();
     }
 
     dispatch({ type: 'USE_TILE', payload: letter });
@@ -799,18 +764,24 @@ export default function SimpleBananagrams() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (state.gamePhase === 'start') {
-      if (e.key === ' ') {
+      if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         dispatch({ type: 'START_GAME' });
-      } else if (e.key.toUpperCase() === 'D') {
+      } else if (e.key.toUpperCase() === 'T') {
         e.preventDefault();
         dispatch({ type: 'START_DEMO' });
+      } else if (e.key.toUpperCase() === 'R') {
+        e.preventDefault();
+        dispatch({ type: 'START_RANDOM' });
+      } else if (e.key.toUpperCase() === 'D') {
+        e.preventDefault();
+        dispatch({ type: 'START_GAME' });
       }
       return;
     }
 
     if (state.demoCompleted) {
-      if (e.key === ' ') {
+      if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         dispatch({ type: 'CONTINUE_TO_GAME' });
       }
@@ -818,22 +789,30 @@ export default function SimpleBananagrams() {
     }
 
     if (state.isPaused) {
-      if (e.key === ' ') {
+      if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         dispatch({ type: 'TOGGLE_PAUSE' });
       } else if (e.key.toUpperCase() === 'Q') {
         e.preventDefault();
         dispatch({ type: 'RESET_GAME' });
-      } else if (e.key.toUpperCase() === 'D') {
+      } else if (e.key.toUpperCase() === 'T') {
         e.preventDefault();
         dispatch({ type: 'RESET_GAME' });
         dispatch({ type: 'START_DEMO' });
+      } else if (e.key.toUpperCase() === 'R') {
+        e.preventDefault();
+        dispatch({ type: 'RESET_GAME' });
+        dispatch({ type: 'START_RANDOM' });
+      } else if (e.key.toUpperCase() === 'D') {
+        e.preventDefault();
+        dispatch({ type: 'RESET_GAME' });
+        dispatch({ type: 'START_GAME' });
       }
       return;
     }
 
     if (state.isGameEnded && !state.demoCompleted) {
-      if (e.key === ' ') {
+      if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         dispatch({ type: 'RESET_GAME' });
       }
@@ -842,17 +821,16 @@ export default function SimpleBananagrams() {
 
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-    // Demo mode controls
     if (state.isDemoMode && !state.isGameEnded) {
       if (e.key === 'Escape') {
         e.preventDefault();
         dispatch({ type: 'EXIT_DEMO' });
         return;
-      } else if (e.key === 'B') {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         handleBananasClick();
         return;
-      } else if (e.key === 'T') {
+      } else if (e.key === '`') {
         e.preventDefault();
         if (state.peelMode) {
           dispatch({ type: 'CANCEL_PEEL' });
@@ -870,17 +848,16 @@ export default function SimpleBananagrams() {
       }
     }
 
-    // Game mode controls
     if (!state.isDemoMode && state.gameStarted && !state.isGameEnded) {
       if (e.key === 'Escape') {
         e.preventDefault();
         dispatch({ type: 'TOGGLE_PAUSE' });
         return;
-      } else if (e.key === 'B') {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         handleBananasClick();
         return;
-      } else if (e.key === 'T') {
+      } else if (e.key === '`') {
         e.preventDefault();
         if (state.peelMode) {
           dispatch({ type: 'CANCEL_PEEL' });
@@ -898,7 +875,6 @@ export default function SimpleBananagrams() {
       }
     }
 
-    // Peel mode handling
     if (state.peelMode) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -914,7 +890,6 @@ export default function SimpleBananagrams() {
       }
     }
 
-    // Regular game controls
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       dispatch({ type: 'ARROW_MOVE', payload: 'up' });
@@ -950,14 +925,16 @@ export default function SimpleBananagrams() {
     return (
       <div
         ref={containerRef}
-        className='min-h-screen bg-yellow-25 flex items-center justify-center'
+        className='min-h-screen bg-gray-100 flex items-center justify-center'
         tabIndex={0}
         onKeyDown={handleKeyDown}
         style={{ outline: 'none' }}>
-        <div className='text-center bg-white rounded-lg p-12 border border-yellow-200 shadow-lg'>
-          <h1 className='text-4xl font-bold text-yellow-800 mb-8'>Not Bananagrams</h1>
-          <p className='text-yellow-700 mb-2'>[d]=demo mode</p>
-          <p className='text-yellow-700 mb-4'>[space]=start today&apos;s game</p>
+        <div className='text-center bg-white border-2 border-gray-400 p-8 font-mono shadow-lg'>
+          <h1 className='text-3xl font-bold text-gray-800 mb-6'>word grid</h1>
+          <p className='text-blue-600 mb-2 text-sm'>[T] tutorial mode</p>
+          <p className='text-blue-600 mb-2 text-sm'>[D] daily game</p>
+          <p className='text-blue-600 mb-4 text-sm'>[R] random game</p>
+          <p className='text-gray-500 text-xs'>[SPACE] also starts daily game</p>
         </div>
       </div>
     );
@@ -970,24 +947,24 @@ export default function SimpleBananagrams() {
     return (
       <div
         ref={containerRef}
-        className='min-h-screen bg-yellow-25 flex items-center justify-center'
+        className='min-h-screen bg-gray-100 flex items-center justify-center'
         tabIndex={0}
         onKeyDown={handleKeyDown}
         style={{ outline: 'none' }}>
-        <div className='bg-white rounded-lg p-8 text-center border border-yellow-200 shadow-lg'>
-          <h2 className='text-3xl font-bold mb-4 text-yellow-800'>Yay!</h2>
-          <p className='text-yellow-700 mb-4'>
-            Demo mode solve time: {minutes}:{seconds.toString().padStart(2, '0')}
+        <div className='bg-white border-2 border-gray-400 p-8 text-center font-mono shadow-lg'>
+          <h2 className='text-2xl font-bold mb-4 text-gray-800'>tutorial complete!</h2>
+          <p className='text-gray-600 mb-4 text-sm'>
+            time: {minutes}:{seconds.toString().padStart(2, '0')}
           </p>
-          <p className='text-yellow-700 mb-2'>Ready to begin today&apos;s game?</p>
-          <p className='text-yellow-600 text-sm'>[space]=continue</p>
+          <p className='text-gray-600 mb-2 text-sm'>ready for today&apos;s game?</p>
+          <p className='text-blue-600 text-xs'>[SPACE] continue</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen bg-yellow-25 flex flex-col items-center p-4'>
+    <div className='min-h-screen bg-gray-100 flex flex-col items-center p-4 font-mono'>
       {state.showToast && (
         <CustomToast
           message={state.showToast}
@@ -998,50 +975,67 @@ export default function SimpleBananagrams() {
 
       {/* Pause Overlay */}
       {state.isPaused && (
-        <div className='fixed inset-0 bg-yellow-25 flex items-center justify-center z-50'>
-          <div className='text-center bg-white rounded-lg p-8 border border-yellow-200 shadow-lg'>
-            <h2 className='text-2xl font-bold mb-4 text-yellow-800'>Paused</h2>
-            <p className='text-yellow-700 mb-2'>[space]=resume game</p>
-            <p className='text-yellow-700 mb-2'>[D]=demo mode</p>
-            <p className='text-yellow-700'>[Q]=quit</p>
+        <div className='fixed inset-0 bg-gray-100 flex items-center justify-center z-50'>
+          <div className='text-center bg-white border-2 border-gray-400 p-8 font-mono shadow-lg'>
+            <h2 className='text-xl font-bold mb-4 text-gray-800'>paused</h2>
+            {state.gamePhase === 'demo' && (
+              <>
+                <p className='text-blue-600 mb-2 text-sm'>[SPACE] resume tutorial game</p>
+                <p className='text-blue-600 mb-2 text-sm'>[D] daily game</p>
+                <p className='text-blue-600 mb-2 text-sm'>[R] random game</p>
+              </>
+            )}
+            {state.gamePhase === 'game' && (
+              <>
+                <p className='text-blue-600 mb-2 text-sm'>[SPACE] resume daily game</p>
+                <p className='text-blue-600 mb-2 text-sm'>[T] tutorial mode</p>
+                <p className='text-blue-600 mb-2 text-sm'>[R] random game</p>
+              </>
+            )}
+            {state.gamePhase === 'random' && (
+              <>
+                <p className='text-blue-600 mb-2 text-sm'>[SPACE] resume random game</p>
+                <p className='text-blue-600 mb-2 text-sm'>[T] tutorial mode</p>
+                <p className='text-blue-600 mb-2 text-sm'>[D] daily game</p>
+              </>
+            )}
+            <p className='text-blue-600 text-sm'>[Q] quit</p>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div className='flex items-center justify-between w-full max-w-md mb-6'>
+      <div className='flex items-center justify-between w-full max-w-lg mb-4 bg-white border border-gray-400 px-4 py-2'>
         <Timer
           startTime={state.gameStartTime}
           endTime={state.gameEndTime}
           isEnded={state.isGameEnded}
           isPaused={state.isPaused}
         />
-        <div className='text-sm text-yellow-600'>{availableTilesCount} left</div>
+        <div className='text-xs text-orange-600'>{availableTilesCount} tiles</div>
       </div>
 
       {/* Demo mode indicator */}
       {state.isDemoMode && !state.isGameEnded && (
-        <div className='text-sm text-yellow-700 mb-2 bg-yellow-100 px-3 py-1 rounded-full'>
-          Demo Mode
+        <div className='text-xs text-blue-600 mb-2 bg-white border border-gray-400 px-3 py-1'>
+          tutorial mode
         </div>
       )}
-
-      {/* Grid Label */}
-      <div className='text-xs text-yellow-500 mb-1 self-start ml-4'>grid</div>
 
       {/* Game Grid */}
       <div
         ref={gridRef}
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        className='outline-none mb-6'
+        className='outline-none mb-4'
         style={{ outline: 'none' }}>
         <div
-          className='border border-black inline-block bg-white shadow-lg rounded-lg overflow-hidden'
+          className='border-2 border-gray-400 inline-block bg-white p-2'
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${state.gridCols}, 40px)`,
-            gridTemplateRows: `repeat(${state.gridRows}, 40px)`,
+            gridTemplateColumns: `repeat(${state.gridCols}, 32px)`,
+            gridTemplateRows: `repeat(${state.gridRows}, 32px)`,
+            gap: '1px',
           }}>
           {state.grid.map((rowData, rowIdx) =>
             rowData.map((cell, colIdx) => {
@@ -1062,23 +1056,29 @@ export default function SimpleBananagrams() {
         </div>
       </div>
 
-      {/* Tiles - Display each tile individually */}
-      <div className='grid grid-cols-8 gap-2 mb-6 p-4 bg-yellow-100 rounded-lg'>
-        {state.tiles.map((tile) => (
-          <Tile key={tile.id} letter={tile.letter} isUsed={tile.isUsed} isNew={tile.isNew} />
-        ))}
+      {/* Tiles */}
+      <div className='bg-white border border-gray-400 p-3 mb-4 max-w-lg'>
+        <div className='text-xs text-blue-600 mb-2'>tiles</div>
+        <div className='grid grid-cols-8 gap-1'>
+          {state.tiles.map((tile) => (
+            <Tile key={tile.id} letter={tile.letter} isUsed={tile.isUsed} isNew={tile.isNew} />
+          ))}
+        </div>
       </div>
 
       {/* Controls */}
-      <div className='text-sm text-yellow-600 text-center max-w-md'>
-        {(state.isDemoMode || (!state.isDemoMode && state.gameStarted)) && !state.isGameEnded ? (
+      <div className='text-xs text-gray-600 text-left max-w-lg bg-white border border-gray-400 p-3'>
+        {state.gameStarted && !state.isGameEnded ? (
           <div>
-            <br />
-            inputs are case-sensitive
-            <br />
-            lowercase=letters&emsp;•&emsp;UPPERCASE=shortcuts <hr />
-            [esc]=pause/help/quit&emsp;•&emsp;[B]=bananas!&emsp;•&emsp;[T]=trade
-            <br />
+            <div className='text-blue-600 mb-2'>how to play</div>
+            <div className='mb-2'>use every tile to build a crossword</div>
+            <div className='mb-1'>• every word must connect and be valid</div>
+            <div className='mb-1'>• [SPACE] change direction</div>
+            <div className='mb-1'>• [`] trade tile, [ENTER] check words</div>
+            <div className='mb-2'>• [ESC] pause</div>
+            <div className='border-t border-gray-300 pt-2 text-orange-600'>
+              [ESC] pause • [ENTER] submit • [`] trade
+            </div>
           </div>
         ) : (
           ''
@@ -1087,13 +1087,13 @@ export default function SimpleBananagrams() {
 
       {/* Victory/End Modal */}
       {state.isGameEnded && state.gameEndTime && !state.demoCompleted && (
-        <div className='fixed inset-0 bg-yellow-900 bg-opacity-50 flex items-center justify-center z-50'>
-          <div className='bg-white rounded-lg p-8 text-center border border-yellow-200 shadow-lg'>
+        <div className='fixed inset-0 bg-gray-100 bg-opacity-90 flex items-center justify-center z-50'>
+          <div className='bg-white border-2 border-gray-400 p-8 text-center font-mono shadow-lg'>
             {state.gameWon ? (
               <>
-                <h2 className='text-3xl font-bold mb-4 text-yellow-800'>Yay!</h2>
-                <div className='mb-4'>
-                  <span className='text-yellow-700'>Time: </span>
+                <h2 className='text-2xl font-bold mb-4 text-gray-800'>victory!</h2>
+                <div className='mb-4 text-gray-600'>
+                  <span className='text-orange-600'>time: </span>
                   <Timer
                     startTime={state.gameStartTime}
                     endTime={state.gameEndTime}
@@ -1103,14 +1103,9 @@ export default function SimpleBananagrams() {
                 </div>
               </>
             ) : (
-              <h2 className='text-2xl font-bold mb-4 text-yellow-800'>Nice try</h2> // this is never reached
+              <h2 className='text-xl font-bold mb-4 text-orange-600'>nice try</h2>
             )}
-            {/* <button
-              onClick={() => dispatch({ type: 'RESET_GAME' })}
-              className='mt-4 px-6 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700'>
-              New Game
-            </button> */}
-            <p className='text-yellow-600 text-sm mt-4'>[space]=play again</p>
+            <p className='text-blue-600 text-xs'>[SPACE] play again</p>
           </div>
         </div>
       )}
